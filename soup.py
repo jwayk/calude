@@ -225,7 +225,7 @@ if __name__ == "__main__":
     parser = ScheduleParser()
     schedule = parser.parse()
     print(len(schedule.runs))
-    calendar = CalendarInterface()
+    calendar = CalendarInterface(settings.gcal["id"])
     outdated_runs = calendar.find_outdated_runs(schedule)
     print(outdated_runs)
 
