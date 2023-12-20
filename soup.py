@@ -103,12 +103,6 @@ class Run:
         )
 
 
-class Schedule:
-    def __init__(self, year: str, runs: list[Run]):
-        self.year = year
-        self.runs = runs
-
-
 class ScheduleParser:
     schedule_url = "/".join([settings.gdq_url, settings.schedule_endpoint])
 
@@ -122,7 +116,7 @@ class ScheduleParser:
         response.html.render()
         return response.html.raw_html
 
-    def parse(self) -> Schedule:
+    def parse(self) -> list[Run]:
         header = self.soup.find("h1")
         year = re.search(
             r".*?(\d{4})(?:\sOnline)?\sSchedule", header.text.strip()
@@ -163,7 +157,7 @@ class ScheduleParser:
                     )
                 )
 
-        return Schedule(year, runs)
+        return runs
 
 
 class CalendarInterface:
@@ -230,32 +224,32 @@ class CalendarInterface:
             self.cached_events = existing_events
         return self.cached_events
 
-    def find_outdated_events(self, schedule: Schedule):
+    def find_outdated_events(self, runs: list[Run]):
         return [
             event
             for event in self.get_all_events()
-            if Run.from_gcal_event(event) not in schedule.runs
+            if Run.from_gcal_event(event) not in runs
         ]
 
 
 if __name__ == "__main__":
     print("Parsing GDQ schedule...")
     parser = ScheduleParser()
-    schedule = parser.parse()
-    print(f"Parsed {len(schedule.runs)} runs")
+    parsed_runs = parser.parse()
+    print(f"Parsed {len(parsed_runs)} runs")
 
     print("Initializing calendar interface...")
     calendar = CalendarInterface(settings.calendar_id, settings.clear_calendar)
 
     existing_events = calendar.get_all_events()
-    outdated_events = calendar.find_outdated_events(schedule)
+    outdated_events = calendar.find_outdated_events(parsed_runs)
     print(f"Deleting {len(outdated_events)} outdated calendar events...")
     for event in outdated_events:
         calendar.delete_event(event)
 
     runs_to_add = [
         run
-        for run in schedule.runs
+        for run in parsed_runs
         if run not in [Run.from_gcal_event(event) for event in existing_events]
     ]
     print(f"Updating information for {len(runs_to_add)} events...")
