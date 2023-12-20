@@ -27,7 +27,7 @@ class Run:
         commentary: str,
         day: str,
         year: str,
-        start: str,
+        start_time: str,
         estimate: str,
     ):
         self.game = game
@@ -35,37 +35,22 @@ class Run:
         self.runner = runner
         self.commentary = commentary
         self.day = day
-        self.start = start
-        self.estimate = estimate
-
-    def _gcal_format(self):
-        return {
-            "summary": self.game,
-            "description": f"{self.runner}\n"
-            f"{self.run_type}\n"
-            f"Estimated time: {self.estimate}\n\n"
-            f"Commentary: {self.commentary}",
-            "start": {"dateTime": None},
-            "end": {"dateTime": None},
-        }
-
-
-class Schedule:
-    def __init__(self, year: str, runs: list):
         self.year = year
-        self.runs = runs
+        self.start_time = start_time
+        self.estimate = estimate
+        self.start_dt, self.end_dt = self.generate_datetime_strings()
 
-    def get_run_datetime_strings(self, run: Run) -> (str, str):
-        day_string = f"{self.year} {run['day'][0:-2]}"
+    def generate_datetime_strings(self) -> (str, str):
+        day_string = f"{self.year} {self.day[0:-2]}"
 
         start_dt = datetime.strptime(
-            f"{day_string} {run.start}", "%Y %A, %B %d %I:%M %p"
+            f"{day_string} {self.start_time}", "%Y %A, %B %d %I:%M %p"
         )
         timezone = pytz.timezone(settings.timezone)
         timezone_offset = 5 - (1 if timezone.localize(start_dt).dst() else 0)
 
         hours, minutes, seconds = [
-            int(x) for x in re.match(r"(\d+):(\d+):(\d+)", run.estimate).groups()
+            int(x) for x in re.match(r"(\d+):(\d+):(\d+)", self.estimate).groups()
         ]
         end_dt = start_dt + timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
@@ -80,6 +65,27 @@ class Schedule:
         )
 
         return start, end
+
+    def to_gcal(self):
+        return {
+            "summary": self.game,
+            "description": f"{self.runner}\n"
+            f"{self.run_type}\n"
+            f"Estimated time: {self.estimate}\n\n"
+            f"Commentary: {self.commentary}",
+            "start": {"dateTime": self.start_dt},
+            "end": {"dateTime": self.end_dt},
+        }
+    
+    def __eq__(self, other):
+        [bound.pop("timeZone") for bound in [other["start"], other["end"]]]
+        return other == self.to_gcal()
+
+
+class Schedule:
+    def __init__(self, year: str, runs: list):
+        self.year = year
+        self.runs = runs
 
 
 class ScheduleParser:
@@ -122,7 +128,16 @@ class ScheduleParser:
                     data.text for data in row.find_all("td")
                 ]
                 runs.append(
-                    Run(game, run_type, runner, commentary, day, year, start_time, runtime)
+                    Run(
+                        game,
+                        run_type,
+                        runner,
+                        commentary,
+                        day,
+                        year,
+                        start_time,
+                        runtime,
+                    )
                 )
 
         return Schedule(year, runs)
@@ -182,19 +197,18 @@ class CalendarInterface:
             next_events, next_page = self._get_events(next_page)
             existing_events.extend(next_events)
         return existing_events
-    
+
     def find_outdated_runs(self, schedule: Schedule):
-        return [
-            run for run in self._retrieve_events()
-            if run not in schedule.runs
-        ]
+        return [run for run in self._retrieve_events() if run not in schedule.runs]
 
 
 if __name__ == "__main__":
     parser = ScheduleParser()
     schedule = parser.parse()
-
     print(len(schedule.runs))
+    calendar = CalendarInterface()
+    outdated_runs = calendar.find_outdated_runs(schedule)
+    print(outdated_runs)
 
     # print(json.dumps(events, indent=4))
     # print(soup.prettify())
