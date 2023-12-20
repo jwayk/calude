@@ -21,36 +21,30 @@ import settings
 class Run:
     def __init__(
         self,
-        game: str,
-        run_type: str,
-        runner: str,
-        commentary: str,
-        day: str,
-        year: str,
-        start_time: str,
-        estimate: str,
+        summary: str,
+        description: str,
+        start: str,
+        end: str,
     ):
-        self.game = game
-        self.run_type = run_type
-        self.runner = runner
-        self.commentary = commentary
-        self.day = day
-        self.year = year
-        self.start_time = start_time
-        self.estimate = estimate
-        self.start_dt, self.end_dt = self.generate_datetime_strings()
+        self.summary = summary
+        self.description = description
+        self.start = start
+        self.end = end
 
-    def generate_datetime_strings(self) -> (str, str):
-        day_string = f"{self.year} {self.day[0:-2]}"
+    @staticmethod
+    def _generate_datetime_strings(
+        year: str, day: str, start_time: str, estimate: str
+    ) -> (str, str):
+        day_string = f"{year} {day[0:-2]}"
 
         start_dt = datetime.strptime(
-            f"{day_string} {self.start_time}", "%Y %A, %B %d %I:%M %p"
+            f"{day_string} {start_time}", "%Y %A, %B %d %I:%M %p"
         )
         timezone = pytz.timezone(settings.timezone)
         timezone_offset = 5 - (1 if timezone.localize(start_dt).dst() else 0)
 
         hours, minutes, seconds = [
-            int(x) for x in re.match(r"(\d+):(\d+):(\d+)", self.estimate).groups()
+            int(x) for x in re.match(r"(\d+):(\d+):(\d+)", estimate).groups()
         ]
         end_dt = start_dt + timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
@@ -66,20 +60,43 @@ class Run:
 
         return start, end
 
-    def to_gcal(self):
+    def to_gcal_event(self):
         return {
-            "summary": self.game,
-            "description": f"{self.runner}\n"
-            f"{self.run_type}\n"
-            f"Estimated time: {self.estimate}\n\n"
-            f"Commentary: {self.commentary}",
+            "summary": self.summary,
+            "description": self.description,
             "start": {"dateTime": self.start_dt},
             "end": {"dateTime": self.end_dt},
         }
-    
-    def __eq__(self, other):
-        [bound.pop("timeZone") for bound in [other["start"], other["end"]]]
-        return other == self.to_gcal()
+
+    @classmethod
+    def from_gcal_event(cls, gcal_event: dict) -> "Run":
+        return cls(
+            gcal_event["summary"],
+            gcal_event["description"],
+            gcal_event["start"]["dateTime"],
+            gcal_event["end"]["dateTime"],
+        )
+
+    @classmethod
+    def from_parsed_values(
+        cls,
+        game: str,
+        run_type: str,
+        runner: str,
+        host: str,
+        year: str,
+        day: str,
+        start_time: str,
+        estimate: str,
+    ) -> "Run":
+        return cls(
+            game,
+            f"{runner}\n"
+            f"{run_type}\n"
+            f"Estimated time: {estimate}\n\n"
+            f"Commentary: {host}",
+            *cls._generate_datetime_strings(year, day, start_time, estimate),
+        )
 
 
 class Schedule:
@@ -124,17 +141,15 @@ class ScheduleParser:
                 continue
 
             if "second-row" in row_class:
-                runtime, run_type, commentary = [
-                    data.text for data in row.find_all("td")
-                ]
+                runtime, run_type, host = [data.text for data in row.find_all("td")]
                 runs.append(
-                    Run(
+                    Run.from_parsed_values(
                         game,
                         run_type,
                         runner,
-                        commentary,
-                        day,
+                        host,
                         year,
+                        day,
                         start_time,
                         runtime,
                     )
@@ -199,7 +214,11 @@ class CalendarInterface:
         return existing_events
 
     def find_outdated_runs(self, schedule: Schedule):
-        return [run for run in self._retrieve_events() if run not in schedule.runs]
+        return [
+            event
+            for event in self._retrieve_events()
+            if Run.from_gcal_event(event) not in schedule.runs
+        ]
 
 
 if __name__ == "__main__":
