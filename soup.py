@@ -120,7 +120,7 @@ class ScheduleParser:
 
     def parse(self) -> Schedule:
         header = self.soup.find("h1")
-        year = re.search(r".*?(\d{4})(?:\sOnline)?\sSchedule", header.text).group(1)
+        year = re.search(r".*?(\d{4})(?:\sOnline)?\sSchedule", header.text.strip()).group(1)
 
         run_table = self.soup.find("table", {"id": "runTable"}).find("tbody")
         table_rows = run_table.find_all("tr")
@@ -131,17 +131,17 @@ class ScheduleParser:
             row_class = row.get("class", [])
 
             if "day-split" in row_class:
-                day = row.find("td").text
+                day = row.find("td").text.strip()
                 continue
 
             if not row_class or (len(row_class) == 1 and "bg-info" in row_class):
                 start_time, game, runner, setup = [
-                    data.text for data in row.find_all("td")
+                    data.text.strip() for data in row.find_all("td")
                 ]
                 continue
 
             if "second-row" in row_class:
-                runtime, run_type, host = [data.text for data in row.find_all("td")]
+                runtime, run_type, host = [data.text.strip() for data in row.find_all("td")]
                 runs.append(
                     Run.from_parsed_values(
                         game,
