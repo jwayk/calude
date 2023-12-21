@@ -20,8 +20,9 @@ def initialize_calendar():
 if __name__ == "__main__":
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        future = executor.submit(lambda function: function(), parse_schedule, initialize_calendar)
-        parsed_runs, calendar = future.result()
+        calendar_thread = executor.submit(initialize_calendar)
+        parsed_runs = parse_schedule()  # schedule parsing must be done in main thread
+        calendar = calendar_thread.result()
 
     existing_events = calendar.get_all_events()
     outdated_events = calendar.find_outdated_events(parsed_runs)
