@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from concurrent.futures import ThreadPoolExecutor
 
 from schedule_parser import ScheduleParser, Run
@@ -12,13 +14,13 @@ def parse_schedule():
     print(f"Parsed {len(parsed_runs)} runs")
     return parsed_runs
 
+
 def initialize_calendar():
     print("Initializing calendar interface...")
     return CalendarInterface(settings.calendar_id, settings.clear_calendar)
 
 
 if __name__ == "__main__":
-
     with ThreadPoolExecutor(max_workers=2) as executor:
         calendar_thread = executor.submit(initialize_calendar)
         parsed_runs = parse_schedule()  # schedule parsing must be done in main thread
