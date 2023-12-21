@@ -1,17 +1,9 @@
-import re
-from time import time
 from datetime import datetime, timedelta
-import pickle
-import os
+import re
 
 from bs4 import BeautifulSoup
 from requests_html import HTMLSession
-import backoff
 import pytz
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 
 import settings
 
@@ -158,102 +150,3 @@ class ScheduleParser:
                 )
 
         return runs
-
-
-class CalendarInterface:
-    def __init__(self, calendar_id: str, clear: bool = False):
-        self.calendar_id = calendar_id
-        self.service = self._authenticate()
-        self.cached_events = None
-        if clear:
-            self.delete_all_events()
-
-    def _authenticate(self):
-        creds = None
-
-        if os.path.exists("_auth/token.pickle"):
-            with open("_auth/token.pickle", "rb") as token_file:
-                creds = pickle.load(token_file)
-
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    "_auth/credentials.json",
-                    scopes=["https://www.googleapis.com/auth/calendar"],
-                )
-                creds = flow.run_local_server(port=0)
-
-            with open("_auth/token.pickle", "wb") as token_file:
-                pickle.dump(creds, token_file)
-
-        return build("calendar", "v3", credentials=creds)
-
-    @backoff.on_exception(backoff.expo, HttpError)
-    def add_event(self, event: dict):
-        self.service.events().insert(
-            calendarId=self.calendar_id, body=event
-        ).execute()
-
-    @backoff.on_exception(backoff.expo, HttpError)
-    def delete_event(self, event: dict):
-        self.service.events().delete(
-            calendarId=self.calendar_id, eventId=event["id"]
-        ).execute()
-
-    def delete_all_events(self):
-        for event in self.get_all_events():
-            self.delete_event(event)
-        self.cached_events = None
-
-    def _get_events_by_page(self, page_token=None) -> (list, str):
-        events_page = (
-            self.service.events()
-            .list(calendarId=self.calendar_id, pageToken=page_token)
-            .execute()
-        )
-        return events_page["items"], events_page.get("nextPageToken")
-
-    def get_all_events(self):
-        if not self.cached_events:
-            existing_events, next_page = self._get_events_by_page()
-            while next_page:
-                next_events, next_page = self._get_events_by_page(next_page)
-                existing_events.extend(next_events)
-            self.cached_events = existing_events
-        return self.cached_events
-
-    def find_outdated_events(self, runs: list[Run]):
-        return [
-            event
-            for event in self.get_all_events()
-            if Run.from_gcal_event(event) not in runs
-        ]
-
-
-if __name__ == "__main__":
-    print("Parsing GDQ schedule...")
-    parser = ScheduleParser()
-    parsed_runs = parser.parse()
-    print(f"Parsed {len(parsed_runs)} runs")
-
-    print("Initializing calendar interface...")
-    calendar = CalendarInterface(settings.calendar_id, settings.clear_calendar)
-
-    existing_events = calendar.get_all_events()
-    outdated_events = calendar.find_outdated_events(parsed_runs)
-    print(f"Deleting {len(outdated_events)} outdated calendar events...")
-    for event in outdated_events:
-        calendar.delete_event(event)
-
-    runs_to_add = [
-        run
-        for run in parsed_runs
-        if run not in [Run.from_gcal_event(event) for event in existing_events]
-    ]
-    print(f"Updating information for {len(runs_to_add)} events...")
-    for run in runs_to_add:
-        calendar.add_event(run.to_gcal_event())
-
-    print("Done!")

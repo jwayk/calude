@@ -1,10 +1,10 @@
 import pytest
 
-from soup import CalendarInterface
+from google_interface import CalendarInterface
 import settings
 
 
 def test_retrieval():
-    calendar = CalendarInterface(settings.gcal["id"])
-    events = calendar._retrieve_events()
+    calendar = CalendarInterface(settings.calendar_id)
+    events = calendar.get_all_events()
     assert len(events)

@@ -1,4 +1,5 @@
-selenium
+bs4
+requests_html
 backoff
 pytz
 google-api-python-client
