@@ -2,12 +2,27 @@ import pickle
 import os.path
 
 import backoff
+from requests_html import HTMLSession
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-from schedule_parser import Run
+from schedule import Run
+
+
+class HTMLInterface:
+    def __init__(self, url: str):
+        self.url = url
+        self.session = HTMLSession()
+
+    def _render_html(self) -> str:
+        response = self.session.get(self.url)
+        response.html.render()
+        return response.html.raw_html
+    
+    def get_html(self) -> str:
+        return self._render_html()
 
 
 class CalendarInterface:

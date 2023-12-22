@@ -5,6 +5,9 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from requests_html import HTMLSession
 
 
+
+
+
 class Run:
     def __init__(
         self,
@@ -84,17 +87,8 @@ class Run:
 
 
 class ScheduleParser:
-    schedule_url = "https://gamesdonequick.com/schedule"
-
-    def __init__(self):
-        self.session = HTMLSession()
-        self.schedule_html = self._render_html()
-        self.soup = BeautifulSoup(self.schedule_html, "html.parser")
-
-    def _render_html(self):
-        response = self.session.get(self.schedule_url)
-        response.html.render()
-        return response.html.raw_html
+    def __init__(self, schedule_html: str):
+        self.soup = BeautifulSoup(schedule_html, "html.parser")
 
     def _parse_year(self) -> str:
         header = self.soup.find("h1")

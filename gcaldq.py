@@ -2,14 +2,15 @@
 
 from concurrent.futures import ThreadPoolExecutor
 
-from schedule_parser import ScheduleParser, Run
-from google_interface import CalendarInterface
+from schedule import ScheduleParser, Run
+from interfaces import HTMLInterface, CalendarInterface
 import settings
 
 
 def parse_schedule():
     print("Parsing GDQ schedule...")
-    parser = ScheduleParser()
+    schedule_html = HTMLInterface("https://gamesdonequick.com/schedule").get_html()
+    parser = ScheduleParser(schedule_html)
     parsed_runs = parser.parse()
     print(f"Parsed {len(parsed_runs)} runs")
     return parsed_runs
