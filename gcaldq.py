@@ -21,7 +21,7 @@ def initialize_calendar():
 
 
 if __name__ == "__main__":
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor() as executor:
         calendar_thread = executor.submit(initialize_calendar)
         parsed_runs = parse_schedule()  # schedule parsing must be done in main thread
         calendar = calendar_thread.result()
