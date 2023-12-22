@@ -3,5 +3,4 @@ bs4==0.0.1
 google-api-python-client==2.111.0
 google-auth-oauthlib==1.2.0
 pytest==7.4.3
-pytz==2023.3.post1
 requests-html==0.10.0
