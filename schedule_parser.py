@@ -20,28 +20,20 @@ class Run:
 
     @staticmethod
     def _generate_datetime_strings(
-        year: str, day: str, start_time: str, estimate: str, timezone_offset: int
+        year: str, day: str, start_time: str, estimate_string: str, timezone_offset: int
     ) -> (str, str):
-        day_string = f"{year} {day[0:-2]}"
+        def format_dt(dt: datetime) -> str:
+            return dt.strftime(f"%Y-%m-%dT%H:%M:%S-{timezone_offset:02d}:00")
+
+        estimate = datetime.strptime(estimate_string, "%H:%M:%S")
         start_dt = datetime.strptime(
-            f"{day_string} {start_time}", "%Y %A, %B %d %I:%M %p"
+            f"{year} {day[0:-2]} {start_time}", "%Y %A, %B %d %I:%M %p"
         )
-        hours, minutes, seconds = [
-            int(x) for x in re.match(r"(\d+):(\d+):(\d+)", estimate).groups()
-        ]
-        end_dt = start_dt + timedelta(hours=hours, minutes=minutes, seconds=seconds)
-
-        start = (
-            f"{start_dt.year:04d}-{start_dt.month:02d}-{start_dt.day:02d}T"
-            f"{start_dt.hour:02d}:{start_dt.minute:02d}:{start_dt.second:02d}-{timezone_offset:02d}:00"
+        end_dt = start_dt + timedelta(
+            hours=estimate.hour, minutes=estimate.minute, seconds=estimate.second
         )
 
-        end = (
-            f"{end_dt.year:04d}-{end_dt.month:02d}-{end_dt.day:02d}T"
-            f"{end_dt.hour:02d}:{end_dt.minute:02d}:{end_dt.second:02d}-{timezone_offset:02d}:00"
-        )
-
-        return start, end
+        return format_dt(start_dt), format_dt(end_dt)
 
     def to_gcal_event(self):
         return {
