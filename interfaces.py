@@ -20,18 +20,16 @@ class HTMLInterface:
         response = self.session.get(self.url)
         response.html.render()
         return response.html.raw_html
-    
+
     def get_html(self) -> str:
         return self._render_html()
 
 
 class CalendarInterface:
-    def __init__(self, calendar_id: str, clear: bool = False):
+    def __init__(self, calendar_id: str):
         self.calendar_id = calendar_id
         self.service = self._authenticate()
         self.cached_events = None
-        if clear:
-            self.delete_all_events()
 
     def _authenticate(self):
         creds = None
