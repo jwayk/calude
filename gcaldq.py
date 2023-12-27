@@ -2,7 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 
-from rich.progress import track
+from rich.progress import track, Progress, SpinnerColumn, TextColumn
 import typer
 from typing_extensions import Annotated
 
@@ -11,18 +11,20 @@ from interfaces import HTMLInterface, CalendarInterface
 import settings
 
 
+def get_spinner():
+    return Progress(TextColumn("{task.description}"), SpinnerColumn("line"))
+
+
 def parse_schedule():
-    print("Parsing GDQ schedule...")
     schedule_html = HTMLInterface("https://gamesdonequick.com/schedule").get_html()
     parser = ScheduleParser(schedule_html)
     parsed_runs = parser.parse()
-    print(f"Parsed {len(parsed_runs)} runs")
     return parsed_runs
 
 
 def initialize_calendar():
-    print("Initializing calendar interface...")
-    return CalendarInterface(settings.calendar_id)
+    calendar = CalendarInterface(settings.calendar_id)
+    return calendar
 
 
 def main(
@@ -35,23 +37,32 @@ def main(
         ),
     ] = False
 ):
-    with ThreadPoolExecutor() as executor:
-        calendar_thread = executor.submit(initialize_calendar)
-        parsed_runs = parse_schedule()  # schedule parsing must be done in main thread
-        calendar = calendar_thread.result()
-
-    existing_events = calendar.get_all_events()
+    with get_spinner() as spinner:
+        spinner.add_task("Initializing calendar & parsing schedule")
+        with ThreadPoolExecutor() as executor:
+            calendar_thread = executor.submit(initialize_calendar)
+            parsed_runs = (
+                parse_schedule()
+            )  # schedule parsing must be done in main thread
+            calendar = calendar_thread.result()
+    typer.echo(f"Parsed {len(parsed_runs)} runs")
 
     if clear_calendar:
         for event in track(calendar.get_all_events(), "Clearing calendar..."):
             calendar.delete_event(event)
         calendar.cached_events = None
 
-    outdated_events = calendar.find_outdated_events(parsed_runs)
+    with get_spinner() as spinner:
+        spinner.add_task("Checking for outdated events", total=None)
+        outdated_events = calendar.find_outdated_events(parsed_runs)
+
     if outdated_events:
         for event in track(outdated_events, "Deleting outdated events..."):
             calendar.delete_event(event)
+    else:
+        typer.echo("No outdated events.")
 
+    existing_events = calendar.get_all_events()
     runs_to_add = [
         run
         for run in parsed_runs
@@ -60,6 +71,8 @@ def main(
     if runs_to_add:
         for run in track(runs_to_add, "Adding events to calendar..."):
             calendar.add_event(run.to_gcal_event())
+    else:
+        typer.echo("No runs to add - calendar is up-to-date.")
 
     typer.echo("Done!")
 
