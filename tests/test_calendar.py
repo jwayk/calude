@@ -1,6 +1,4 @@
-import pytest
-
-from google_interface import CalendarInterface
+from interfaces import CalendarInterface
 import settings
 
 
