@@ -12,7 +12,9 @@ import settings
 
 
 def get_spinner():
-    return Progress(TextColumn("{task.description}"), SpinnerColumn("line"))
+    return Progress(
+        TextColumn("{task.description}"), SpinnerColumn("line", finished_text="done")
+    )
 
 
 def parse_schedule():
@@ -38,13 +40,14 @@ def main(
     ] = False
 ):
     with get_spinner() as spinner:
-        spinner.add_task("Initializing calendar & parsing schedule")
+        task = spinner.add_task("Initializing calendar & parsing schedule ...", total=1)
         with ThreadPoolExecutor() as executor:
             calendar_thread = executor.submit(initialize_calendar)
             parsed_runs = (
                 parse_schedule()
             )  # schedule parsing must be done in main thread
             calendar = calendar_thread.result()
+        spinner.update(task, completed=1)
     typer.echo(f"Parsed {len(parsed_runs)} runs")
 
     if clear_calendar:
@@ -53,8 +56,9 @@ def main(
         calendar.cached_events = None
 
     with get_spinner() as spinner:
-        spinner.add_task("Checking for outdated events", total=None)
+        task = spinner.add_task("Checking for outdated events ...", total=1)
         outdated_events = calendar.find_outdated_events(parsed_runs)
+        spinner.update(task, completed=1)
 
     if outdated_events:
         for event in track(outdated_events, "Deleting outdated events..."):
