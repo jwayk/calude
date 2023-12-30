@@ -46,5 +46,7 @@ def spin(task_description: str):
                 result = function(*args, **kwargs)
                 spinner.update(task_id, completed=1)
             return result
+
         return wrapper
+
     return decorator
