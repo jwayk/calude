@@ -12,13 +12,6 @@ from lib.tasks import spin, track
 import settings
 
 
-def parse_schedule():
-    schedule_html = HTMLInterface("https://gamesdonequick.com/schedule").get_html()
-    parser = ScheduleParser(schedule_html)
-    parsed_runs = parser.parse()
-    return parsed_runs
-
-
 def initialize_calendar() -> CalendarInterface:
     calendar = CalendarInterface(settings.calendar_id)
     return calendar
@@ -28,9 +21,10 @@ def initialize_calendar() -> CalendarInterface:
 def initialize() -> t.Tuple[list[Run], CalendarInterface]:
     with ThreadPoolExecutor() as executor:
         calendar_thread = executor.submit(initialize_calendar)
-        parsed_runs = parse_schedule()  # schedule parsing must be done in main thread
-        calendar = calendar_thread.result()
-    return parsed_runs, calendar
+    # schedule parsing must occur in main thread
+    schedule_html = HTMLInterface("https://gamesdonequick.com/schedule").get_html()
+    parser = ScheduleParser(schedule_html)
+    return parser.parse(), calendar_thread.result()
 
 
 @spin("Checking for outdated events ...")
