@@ -1,20 +1,15 @@
 #!/usr/bin/env python3
 
 from concurrent.futures import ThreadPoolExecutor
+import typing as t
 
-from rich.progress import track, Progress, SpinnerColumn, TextColumn
 import typer
 from typing_extensions import Annotated
 
-from schedule import ScheduleParser, Run
-from interfaces import HTMLInterface, CalendarInterface
+from lib.schedule import ScheduleParser, Run
+from lib.interfaces import HTMLInterface, CalendarInterface
+from lib.tasks import spin, track
 import settings
-
-
-def get_spinner():
-    return Progress(
-        TextColumn("{task.description}"), SpinnerColumn("line", finished_text="done")
-    )
 
 
 def parse_schedule():
@@ -24,9 +19,23 @@ def parse_schedule():
     return parsed_runs
 
 
-def initialize_calendar():
+def initialize_calendar() -> CalendarInterface:
     calendar = CalendarInterface(settings.calendar_id)
     return calendar
+
+
+@spin("Initializing calendar & parsing schedule ...")
+def initialize() -> t.Tuple[list[Run], CalendarInterface]:
+    with ThreadPoolExecutor() as executor:
+        calendar_thread = executor.submit(initialize_calendar)
+        parsed_runs = parse_schedule()  # schedule parsing must be done in main thread
+        calendar = calendar_thread.result()
+    return parsed_runs, calendar
+
+
+@spin("Checking for outdated events ...")
+def find_outdated_events(calendar: CalendarInterface, existing_runs: list[Run]) -> list:
+    return calendar.find_outdated_events(existing_runs)
 
 
 def main(
@@ -39,30 +48,16 @@ def main(
         ),
     ] = False
 ):
-    with get_spinner() as spinner:
-        task = spinner.add_task("Initializing calendar & parsing schedule ...", total=1)
-        with ThreadPoolExecutor() as executor:
-            calendar_thread = executor.submit(initialize_calendar)
-            parsed_runs = (
-                parse_schedule()
-            )  # schedule parsing must be done in main thread
-            calendar = calendar_thread.result()
-        spinner.update(task, completed=1)
+    parsed_runs, calendar = initialize()
     typer.echo(f"Parsed {len(parsed_runs)} runs")
 
     if clear_calendar:
-        for event in track(calendar.get_all_events(), "Clearing calendar..."):
-            calendar.delete_event(event)
+        track(calendar.delete_event, calendar.get_all_events(), "Clearing calendar ...")
         calendar.cached_events = None
 
-    with get_spinner() as spinner:
-        task = spinner.add_task("Checking for outdated events ...", total=1)
-        outdated_events = calendar.find_outdated_events(parsed_runs)
-        spinner.update(task, completed=1)
-
+    outdated_events = find_outdated_events(calendar, parsed_runs)
     if outdated_events:
-        for event in track(outdated_events, "Deleting outdated events..."):
-            calendar.delete_event(event)
+        track(calendar.delete_event, outdated_events, "Deleting outdated events ...")
     else:
         typer.echo("No outdated events.")
 
@@ -73,10 +68,13 @@ def main(
         if run not in [Run.from_gcal_event(event) for event in existing_events]
     ]
     if runs_to_add:
-        for run in track(runs_to_add, "Adding events to calendar..."):
-            calendar.add_event(run.to_gcal_event())
+        track(
+            calendar.add_event,
+            [run.to_gcal_event() for run in runs_to_add],
+            "Adding events to calendar ...",
+        )
     else:
-        typer.echo("No runs to add - calendar is up-to-date.")
+        typer.echo("No runs to add; calendar is up-to-date.")
 
     typer.echo("Done!")
 
