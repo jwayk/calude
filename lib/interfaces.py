@@ -8,7 +8,7 @@ from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-from schedule import Run
+from .schedule import Run
 
 
 class HTMLInterface:
