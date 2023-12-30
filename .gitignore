@@ -1,5 +1,5 @@
 /venv/
-/__pycache__/
-credentials.json
-token.pickle
+__pycache__/
+_auth/
+.pytest_cache/
 settings.py
