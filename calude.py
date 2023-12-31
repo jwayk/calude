@@ -56,17 +56,13 @@ def main(
         typer.echo("No outdated events.")
 
     existing_events = calendar.get_all_events()
-    runs_to_add = [
-        run
+    events_to_add = [
+        run.to_gcal_event()
         for run in parsed_runs
         if run not in [Run.from_gcal_event(event) for event in existing_events]
     ]
-    if runs_to_add:
-        track(
-            calendar.add_event,
-            [run.to_gcal_event() for run in runs_to_add],
-            "Adding events to calendar ...",
-        )
+    if events_to_add:
+        track(calendar.add_event, events_to_add, "Adding events to calendar ...")
     else:
         typer.echo("No runs to add; calendar is up-to-date.")
 
