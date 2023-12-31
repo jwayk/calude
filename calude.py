@@ -7,18 +7,18 @@ import typer
 from typing_extensions import Annotated
 
 from lib.schedule import ScheduleParser, Run
-from lib.interfaces import HTMLInterface, CalendarInterface
+from lib.interfaces import HTMLInterface, GCalInterface, ICSInterface
 from lib.tasks import spin, track
 import settings
 
 
-def initialize_calendar() -> CalendarInterface:
-    calendar = CalendarInterface(settings.calendar_id)
+def initialize_calendar() -> GCalInterface:
+    calendar = GCalInterface(settings.calendar_id)
     return calendar
 
 
 @spin("Initializing calendar & parsing schedule ...")
-def initialize() -> t.Tuple[list[Run], CalendarInterface]:
+def initialize() -> t.Tuple[list[Run], GCalInterface]:
     with ThreadPoolExecutor() as executor:
         calendar_thread = executor.submit(initialize_calendar)
     # schedule parsing must occur in main thread
@@ -28,7 +28,7 @@ def initialize() -> t.Tuple[list[Run], CalendarInterface]:
 
 
 @spin("Checking for outdated events ...")
-def find_outdated_events(calendar: CalendarInterface, existing_runs: list[Run]) -> list:
+def find_outdated_events(calendar: GCalInterface, existing_runs: list[Run]) -> list:
     return calendar.find_outdated_events(existing_runs)
 
 
@@ -40,10 +40,23 @@ def main(
             "--clear-calendar",
             help="Clear all events from the calendar before updating.",
         ),
+    ] = False,
+    store_ics: Annotated[
+        bool,
+        typer.Option(
+            "-i",
+            "--store-ics",
+            help="Store an ICS file containing all parsed events."
+        )
     ] = False
 ):
     parsed_runs, calendar = initialize()
     typer.echo(f"Parsed {len(parsed_runs)} runs")
+
+    if store_ics:
+        ics_calendar = ICSInterface.from_runs(parsed_runs)
+        with open("gdq_schedule.ics", "w+") as ics_file:
+            ics_file.writelines(ics_calendar.serialize_iter())
 
     if clear_calendar:
         track(calendar.delete_event, calendar.get_all_events(), "Clearing calendar ...")

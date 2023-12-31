@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from ics import Calendar, Event
 
 from .schedule import Run
 
@@ -28,9 +29,19 @@ class HTMLInterface:
     def get_html(self) -> str:
         html = self._retrieve_html()
         return self.render(html)
+    
+
+class ICSInterface(Calendar):
+
+    def __init__(self, events: list[Event]) -> None:
+        super().__init__(events=events)
+
+    @classmethod
+    def from_runs(cls, runs: list[Run]) -> "ICSInterface":
+        return cls([Event(name=run.summary, description=run.description, begin=run.start, end=run.end) for run in runs])
 
 
-class CalendarInterface:
+class GCalInterface:
     def __init__(self, calendar_id: str):
         self.calendar_id = calendar_id
         self.service = self._authenticate()
