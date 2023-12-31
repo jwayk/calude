@@ -3,6 +3,7 @@ black==23.12.1
 bs4==0.0.1
 google-api-python-client==2.111.0
 google-auth-oauthlib==1.2.0
+ics==0.7.2
 pytest==7.4.3
 rich==13.7.0
 selenium==4.16.0
