@@ -8,18 +8,19 @@ import json
 import typer
 from typing_extensions import Annotated
 
-from lib.interfaces import HTMLInterface, CalendarInterface
 from lib.logging import Logger
 from lib.schedule import ScheduleParser, Run
+from lib.schedule import ScheduleParser, Run
+from lib.interfaces import HTMLInterface, GCalInterface, ICSInterface
 from lib.tasks import spin, track
 
 
-def initialize_calendar(calendar_id: str) -> CalendarInterface:
-    return CalendarInterface(calendar_id) if calendar_id else None
+def initialize_calendar(calendar_id: str) -> GCalInterface:
+    return GCalInterface(calendar_id) if calendar_id else None
 
 
 @spin("Initializing calendar & parsing schedule ...")
-def initialize(calendar_id: str) -> t.Tuple[list[Run], CalendarInterface]:
+def initialize(calendar_id: str) -> t.Tuple[list[Run], GCalInterface]:
     with ThreadPoolExecutor() as executor:
         calendar_thread = executor.submit(initialize_calendar, calendar_id)
     # schedule parsing must occur in main thread
@@ -31,7 +32,7 @@ def initialize(calendar_id: str) -> t.Tuple[list[Run], CalendarInterface]:
 
 
 @spin("Checking for outdated events ...")
-def find_outdated_events(calendar: CalendarInterface, existing_runs: list[Run]) -> list:
+def find_outdated_events(calendar: GCalInterface, existing_runs: list[Run]) -> list:
     return calendar.find_outdated_events(existing_runs)
 
 
@@ -95,6 +96,12 @@ def main(
             help="Clear all events from third-party calendar services before updating.",
         ),
     ] = False,
+    store_ics: Annotated[
+        bool,
+        typer.Option(
+            "-i", "--store-ics", help="Store an ICS file containing all parsed events."
+        ),
+    ] = False,
 ):
     if not parse_only and not google_calendar_id:
         raise typer.BadParameter(
@@ -111,6 +118,10 @@ def main(
                 json.dumps([run.to_gcal_event() for run in parsed_runs], indent=4)
             )
         exit(0)
+    if store_ics:
+        ics_calendar = ICSInterface.from_runs(parsed_runs)
+        with open("gdq_schedule.ics", "w+") as ics_file:
+            ics_file.writelines(ics_calendar.serialize_iter())
 
     if clear_calendar:
         all_events = calendar.get_all_events()
