@@ -136,7 +136,7 @@ class ScheduleParser:
                         year,
                         day,
                         start_time,
-                        runtime,
+                        runtime if runtime else setup,
                         timezone_offset,
                     )
                 )
