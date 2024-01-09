@@ -15,6 +15,8 @@ class HTMLInterface:
     def __init__(self, url: str):
         self.url = url
         self.session = HTMLSession()
+        self.html = None
+        self.rendered_html = None
 
     @staticmethod
     def render(html: HTML):
@@ -22,12 +24,16 @@ class HTMLInterface:
         return html.raw_html
 
     def _retrieve_html(self) -> HTML:
-        response = self.session.get(self.url)
-        return response.html
+        if not self.html:
+            response = self.session.get(self.url)
+            self.html = response.html
+        return self.html
 
     def get_html(self) -> str:
-        html = self._retrieve_html()
-        return self.render(html)
+        if not self.rendered_html:
+            html = self._retrieve_html()
+            self.rendered_html = self.render(html)
+        return self.rendered_html
 
 
 class CalendarInterface:

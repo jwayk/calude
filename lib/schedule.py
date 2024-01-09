@@ -6,6 +6,8 @@ from requests_html import HTMLSession
 
 
 class Run:
+    _essential_attrs = ["summary", "description", "start", "end"]
+
     def __init__(
         self,
         summary: str,
@@ -23,7 +25,8 @@ class Run:
         year: str, day: str, start_time: str, estimate_string: str, timezone_offset: int
     ) -> (str, str):
         def format_dt(dt: datetime) -> str:
-            return dt.strftime(f"%Y-%m-%dT%H:%M:%S-{timezone_offset:02d}:00")
+            dt_utc = dt - timedelta(hours=timezone_offset)
+            return dt_utc.strftime(f"%Y-%m-%dT%H:%M:%SZ")
 
         estimate = datetime.strptime(estimate_string, "%H:%M:%S")
         start_dt = datetime.strptime(
@@ -39,17 +42,32 @@ class Run:
         return {
             "summary": self.summary,
             "description": self.description,
-            "start": {"dateTime": self.start},
-            "end": {"dateTime": self.end},
+            "start": {"dateTime": self.start, "timeZone": "Etc/UTC"},
+            "end": {"dateTime": self.end, "timeZone": "Etc/UTC"},
         }
 
     @classmethod
     def from_gcal_event(cls, gcal_event: dict) -> "Run":
+        def convert_to_utc(date: dict):
+            dt_format = "%Y-%m-%dT%H:%M:%S"
+            date_string = date["dateTime"]
+            dt = datetime.strptime(date["dateTime"][:19], dt_format)
+            if len(date_string) > 20:
+                offset_polarity = int(date["dateTime"][19] + "1")
+                dt = dt - (
+                    offset_polarity
+                    * timedelta(
+                        hours=int(date["dateTime"][-5:-3]),
+                        minutes=int(date["dateTime"][-2:]),
+                    )
+                )
+            return dt.strftime(dt_format) + "Z"
+
         return cls(
             gcal_event["summary"],
             gcal_event["description"],
-            gcal_event["start"]["dateTime"],
-            gcal_event["end"]["dateTime"],
+            convert_to_utc(gcal_event["start"]),
+            convert_to_utc(gcal_event["end"]),
         )
 
     @classmethod
@@ -76,10 +94,16 @@ class Run:
             ),
         )
 
+    def __repr__(self):
+        repr_string = ", ".join(
+            [repr(getattr(self, attr)) for attr in self._essential_attrs]
+        )
+        return f"Run({repr_string})"
+
     def __eq__(self, other):
         return all(
             getattr(self, attr) == getattr(other, attr)
-            for attr in ["summary", "description", "start", "end"]
+            for attr in self._essential_attrs
         )
 
 
@@ -99,10 +123,12 @@ class ScheduleParser:
 
     def _parse_timezone_offset(self) -> int:
         tz_banner = self.soup.find("span", {"id": "offset-detected"})
-        regex_match = re.search(r"\(detected as UTC-(\d\d):00\)", tz_banner.text.strip())
+        regex_match = re.search(
+            r"\(detected as UTC([+-]\d\d):00\)", tz_banner.text.strip()
+        )
         if not regex_match:
             return 0  # displayed time is utc
-        return regex_match.group(1)
+        return int(regex_match.group(1))
 
     def parse(self) -> list[Run]:
         year = self._parse_year()
