@@ -99,9 +99,10 @@ class ScheduleParser:
 
     def _parse_timezone_offset(self) -> int:
         tz_banner = self.soup.find("span", {"id": "offset-detected"})
-        return int(
-            re.search(r"\(detected as UTC-(\d\d):00\)", tz_banner.text.strip()).group(1)
-        )
+        regex_match = re.search(r"\(detected as UTC-(\d\d):00\)", tz_banner.text.strip())
+        if not regex_match.groups():
+            return 0  # displayed time is utc
+        return regex_match.group(1)
 
     def parse(self) -> list[Run]:
         year = self._parse_year()
