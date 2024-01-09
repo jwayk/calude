@@ -6,8 +6,9 @@ import typing as t
 import typer
 from typing_extensions import Annotated
 
-from lib.schedule import ScheduleParser, Run
 from lib.interfaces import HTMLInterface, CalendarInterface
+from lib.logging import Logger
+from lib.schedule import ScheduleParser, Run
 from lib.tasks import spin, track
 import settings
 
@@ -42,15 +43,19 @@ def main(
         ),
     ] = False
 ):
+    log = Logger("calude_updates")
     parsed_runs, calendar = initialize()
     typer.echo(f"Parsed {len(parsed_runs)} runs")
 
     if clear_calendar:
-        track(calendar.delete_event, calendar.get_all_events(), "Clearing calendar ...")
+        all_events = calendar.get_all_events()
+        log.debug(f"Cleared Events: {all_events}")
+        track(calendar.delete_event, all_events, "Clearing calendar ...")
         calendar.cached_events = None
 
     outdated_events = find_outdated_events(calendar, parsed_runs)
     if outdated_events:
+        log.debug(f"Outdated Events: {outdated_events}")
         track(calendar.delete_event, outdated_events, "Deleting outdated events ...")
     else:
         typer.echo("No outdated events.")
@@ -62,6 +67,7 @@ def main(
         if run not in [Run.from_gcal_event(event) for event in existing_events]
     ]
     if events_to_add:
+        log.debug(f"New Events: {events_to_add}")
         track(calendar.add_event, events_to_add, "Adding events to calendar ...")
     else:
         typer.echo("No runs to add; calendar is up-to-date.")
