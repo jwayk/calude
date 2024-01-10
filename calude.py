@@ -33,6 +33,17 @@ def find_outdated_events(calendar: CalendarInterface, existing_runs: list[Run]) 
     return calendar.find_outdated_events(existing_runs)
 
 
+def log_format_events(events: t.List[t.Dict]) -> t.List[t.Dict]:
+    return [
+        {
+            "summary": event["summary"],
+            "start": event["start"]["dateTime"],
+            "end": event["end"]["dateTime"],
+        }
+        for event in events
+    ]
+
+
 def main(
     clear_calendar: Annotated[
         bool,
@@ -49,13 +60,13 @@ def main(
 
     if clear_calendar:
         all_events = calendar.get_all_events()
-        log.debug(f"Cleared Events: {all_events}")
+        log.debug(f"Cleared Events: {log_format_events(all_events)}")
         track(calendar.delete_event, all_events, "Clearing calendar ...")
         calendar.cached_events = None
 
     outdated_events = find_outdated_events(calendar, parsed_runs)
     if outdated_events:
-        log.debug(f"Outdated Events: {outdated_events}")
+        log.debug(f"Outdated Events: {log_format_events(outdated_events)}")
         track(calendar.delete_event, outdated_events, "Deleting outdated events ...")
     else:
         typer.echo("No outdated events.")
@@ -67,7 +78,7 @@ def main(
         if run not in [Run.from_gcal_event(event) for event in existing_events]
     ]
     if events_to_add:
-        log.debug(f"New Events: {events_to_add}")
+        log.debug(f"New Events: {log_format_events(events_to_add)}")
         track(calendar.add_event, events_to_add, "Adding events to calendar ...")
     else:
         typer.echo("No runs to add; calendar is up-to-date.")
