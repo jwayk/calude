@@ -147,7 +147,9 @@ class ScheduleParser:
         estimate = re.match(r"\(Est: (.*)\)", estimate_text).group(1)
 
         runner_element_type = "a" if cast_div.find("a") else "div"
-        runner = cast_div.find(runner_element_type, {"class": "ring-[color:var(--accent-purple)]"}).text
+        runner = cast_div.find(
+            runner_element_type, {"class": "ring-[color:var(--accent-purple)]"}
+        ).text
         host = cast_div.find("div", {"class": "ring-[color:var(--gdq-blue)]"}).text
         couch_members = [
             element.text
@@ -163,7 +165,7 @@ class ScheduleParser:
             "host": host,
             "couch": couch_members,
             "start_time": start_time,
-            "estimate": estimate
+            "estimate": estimate,
         }
 
     def parse(self) -> list[Run]:
@@ -183,11 +185,13 @@ class ScheduleParser:
             if not parsed_event_info:
                 continue
 
-            runs.append(Run.from_parsed_values(
-                year=year,
-                day=day,
-                timezone_offset=timezone_offset,
-                **parsed_event_info
-            ))
+            runs.append(
+                Run.from_parsed_values(
+                    year=year,
+                    day=day,
+                    timezone_offset=timezone_offset,
+                    **parsed_event_info,
+                )
+            )
 
         return runs
