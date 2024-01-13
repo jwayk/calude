@@ -25,7 +25,7 @@ class HTMLInterface:
         if not self.html:
             self.driver.get(self.url)
             self.driver.implicitly_wait(
-                5
+                10
             )  # set timeout to wait for the schedule element
             self.driver.find_element(
                 By.XPATH, "//div[@class='flex flex-col relative']"
