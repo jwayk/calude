@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 import re
 
 from bs4 import BeautifulSoup, ResultSet, Tag
-from requests_html import HTMLSession
 
 
 class Run:
