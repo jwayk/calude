@@ -30,7 +30,7 @@ class Run:
 
         estimate = datetime.strptime(estimate_string, "%H:%M:%S")
         start_dt = datetime.strptime(
-            f"{year} {day[0:-2]} {start_time}", "%Y %A, %B %d %I:%M %p"
+            f"{year} {day[0:-2]} {start_time}", "%Y %A, %b %d %I:%M %p"
         )
         end_dt = start_dt + timedelta(
             hours=estimate.hour, minutes=estimate.minute, seconds=estimate.second
@@ -74,9 +74,10 @@ class Run:
     def from_parsed_values(
         cls,
         game: str,
-        run_type: str,
+        run_category: str,
         runner: str,
         host: str,
+        couch: list[str],
         year: str,
         day: str,
         start_time: str,
@@ -86,9 +87,9 @@ class Run:
         return cls(
             game,
             f"{runner}\n"
-            f"{run_type}\n"
+            f"{run_category}\n"
             f"Estimated time: {estimate}\n\n"
-            f"Commentary: {host}",
+            f"Host: {host}" + ("\n" + f"Couch: {', '.join(couch)}" if couch else ""),
             *cls._generate_datetime_strings(
                 year, day, start_time, estimate, timezone_offset
             ),
@@ -112,60 +113,81 @@ class ScheduleParser:
         self.soup = BeautifulSoup(schedule_html, "html.parser")
 
     def _parse_year(self) -> str:
-        header = self.soup.find("h1")
+        title = self.soup.find("title")
         return re.search(
-            r".*?(\d{4})(?:\sOnline)?\sSchedule", header.text.strip()
+            r".*?(\d{4})(?:\sOnline)?\sSchedule", title.text.strip()
         ).group(1)
 
-    def _get_table_rows(self) -> ResultSet[Tag]:
-        run_table = self.soup.find("table", {"id": "runTable"}).find("tbody")
-        return run_table.find_all("tr")
-
     def _parse_timezone_offset(self) -> int:
-        tz_banner = self.soup.find("span", {"id": "offset-detected"})
-        regex_match = re.search(
-            r"\(detected as UTC([+-]\d\d):00\)", tz_banner.text.strip()
-        )
-        if not regex_match:
-            return 0  # displayed time is utc
-        return int(regex_match.group(1))
+        return -5  # new schedule is currently hard-coded to America/New_York
+
+    def _find_event_containers(self) -> ResultSet[Tag]:
+        schedule_container = self.soup.find("div", {"id": "radix-:r0:-content-All"})
+        events_container = schedule_container.find_all("div", recursive=False)[
+            1
+        ]  # first div in main container is controls, skip it
+        return events_container.find_all("div", recursive=False)
+
+    def _parse_single_run_from_div(self, div: Tag) -> dict:
+        title_div, description_div = div.find_all("div", recursive=False)
+        if not title_div.text:
+            return {}  # no listed title or start time
+
+        title_information = title_div.find_all("div", recursive=False)
+        if len(title_information) != 2:
+            return {}  # pre-show-like event without a title
+
+        title, start_time = (info.find(string=True) for info in title_information)
+
+        meta_div, cast_div = description_div.find_all("div", recursive=False)
+
+        event_type = meta_div.find("label", recursive=False).text
+        run_category = meta_div.find("div", {"class": "inline-flex"}).text
+        estimate_text = meta_div.find("span", {"class": "font-monospace"}).text
+        estimate = re.match(r"\(Est: (.*)\)", estimate_text).group(1)
+
+        runner_element_type = "a" if cast_div.find("a") else "div"
+        runner = cast_div.find(runner_element_type, {"class": "ring-[color:var(--accent-purple)]"}).text
+        host = cast_div.find("div", {"class": "ring-[color:var(--gdq-blue)]"}).text
+        couch_members = [
+            element.text
+            for element in cast_div.find_all(
+                "div", {"class": "ring-[color:var(--accent-goldenrod)]"}
+            )
+        ]
+
+        return {
+            "game": title,
+            "run_category": run_category,
+            "runner": runner,
+            "host": host,
+            "couch": couch_members,
+            "start_time": start_time,
+            "estimate": estimate
+        }
 
     def parse(self) -> list[Run]:
         year = self._parse_year()
         timezone_offset = self._parse_timezone_offset()
-        table_rows = self._get_table_rows()
+        all_schedule_divs = self._find_event_containers()
 
         day = None
         runs = []
-        for row in table_rows:
-            row_class = row.get("class", [])
-
-            if "day-split" in row_class:
-                day = row.find("td").text.strip()
+        for div in all_schedule_divs:
+            root_text_content = div.find(string=True, recursive=False)
+            if root_text_content:
+                day = root_text_content.strip()
                 continue
 
-            if not row_class or (len(row_class) == 1 and "bg-info" in row_class):
-                start_time, game, runner, setup = [
-                    data.text.strip() for data in row.find_all("td")
-                ]
+            parsed_event_info = self._parse_single_run_from_div(div)
+            if not parsed_event_info:
                 continue
 
-            if "second-row" in row_class:
-                runtime, run_type, host = [
-                    data.text.strip() for data in row.find_all("td")
-                ]
-                runs.append(
-                    Run.from_parsed_values(
-                        game,
-                        run_type,
-                        runner,
-                        host,
-                        year,
-                        day,
-                        start_time,
-                        runtime if runtime else setup,
-                        timezone_offset,
-                    )
-                )
+            runs.append(Run.from_parsed_values(
+                year=year,
+                day=day,
+                timezone_offset=timezone_offset,
+                **parsed_event_info
+            ))
 
         return runs
