@@ -14,8 +14,7 @@ import settings
 
 
 def initialize_calendar() -> CalendarInterface:
-    calendar = CalendarInterface(settings.calendar_id)
-    return calendar
+    return CalendarInterface(settings.calendar_id) 
 
 
 @spin("Initializing calendar & parsing schedule ...")
@@ -23,7 +22,7 @@ def initialize() -> t.Tuple[list[Run], CalendarInterface]:
     with ThreadPoolExecutor() as executor:
         calendar_thread = executor.submit(initialize_calendar)
     # schedule parsing must occur in main thread
-    schedule_html = HTMLInterface("https://gamesdonequick.com/schedule").get_html()
+    schedule_html = HTMLInterface("https://gdq-site.vercel.app/").get_html()
     parser = ScheduleParser(schedule_html)
     return parser.parse(), calendar_thread.result()
 
@@ -45,6 +44,14 @@ def log_format_events(events: t.List[t.Dict]) -> t.List[t.Dict]:
 
 
 def main(
+    parse_only: Annotated[
+        bool,
+        typer.Option(
+            "-p",
+            "--parse-only",
+            help="Parse the schedule, but do not update any calendars via API.",
+        ),
+    ] = False,
     clear_calendar: Annotated[
         bool,
         typer.Option(
@@ -57,6 +64,9 @@ def main(
     log = Logger("calude_updates")
     parsed_runs, calendar = initialize()
     typer.echo(f"Parsed {len(parsed_runs)} runs")
+
+    if parse_only:
+        exit(0)
 
     if clear_calendar:
         all_events = calendar.get_all_events()
