@@ -7,6 +7,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from selenium import webdriver
+from selenium.webdriver.common.by import By
 
 from .schedule import Run
 
@@ -14,26 +16,22 @@ from .schedule import Run
 class HTMLInterface:
     def __init__(self, url: str):
         self.url = url
-        self.session = HTMLSession()
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        self.driver = webdriver.Chrome(options=options)
         self.html = None
-        self.rendered_html = None
-
-    @staticmethod
-    def render(html: HTML):
-        html.render()
-        return html.raw_html
-
-    def _retrieve_html(self) -> HTML:
-        if not self.html:
-            response = self.session.get(self.url)
-            self.html = response.html
-        return self.html
 
     def get_html(self) -> str:
-        if not self.rendered_html:
-            html = self._retrieve_html()
-            self.rendered_html = self.render(html)
-        return self.rendered_html
+        if not self.html:
+            self.driver.get(self.url)
+            self.driver.implicitly_wait(
+                5
+            )  # set timeout to wait for the schedule element
+            self.driver.find_element(
+                By.XPATH, "//div[@class='flex flex-col relative']"
+            )  # find the main schedule div
+            self.html = self.driver.page_source
+        return self.html
 
 
 class CalendarInterface:
