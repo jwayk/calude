@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 import typing as t
+import re
 
 import typer
 from typing_extensions import Annotated
@@ -10,17 +11,16 @@ from lib.interfaces import HTMLInterface, CalendarInterface
 from lib.logging import Logger
 from lib.schedule import ScheduleParser, Run
 from lib.tasks import spin, track
-import settings
 
 
-def initialize_calendar() -> CalendarInterface:
-    return CalendarInterface(settings.calendar_id) 
+def initialize_calendar(calendar_id: str) -> CalendarInterface:
+    return CalendarInterface(calendar_id) if calendar_id else None
 
 
 @spin("Initializing calendar & parsing schedule ...")
-def initialize() -> t.Tuple[list[Run], CalendarInterface]:
+def initialize(calendar_id: str) -> t.Tuple[list[Run], CalendarInterface]:
     with ThreadPoolExecutor() as executor:
-        calendar_thread = executor.submit(initialize_calendar)
+        calendar_thread = executor.submit(initialize_calendar, calendar_id)
     # schedule parsing must occur in main thread
     site_interface = HTMLInterface("https://gdq-site.vercel.app/")
     schedule_html = site_interface.get_html()
@@ -45,7 +45,39 @@ def log_format_events(events: t.List[t.Dict]) -> t.List[t.Dict]:
     ]
 
 
+def validate_gcal_id(calendar_id: str) -> t.Union[str, None]:
+    if calendar_id is None:
+        return calendar_id
+
+    try:
+        cal_id, domain = calendar_id.split("@")
+    except ValueError:
+        raise typer.BadParameter(
+            "Calendar ID must be supplied in the format '<ID64>@<DOMAIN>'"
+        )
+
+    group_domain = "group.calendar.google.com"
+    if domain != group_domain:
+        raise typer.BadParameter(
+            f"Calendar domain must point to a group calendar ({group_domain})"
+        )
+
+    if not re.match(r"[\w\d]{64}", cal_id):
+        raise typer.BadParameter("Calendar ID must be 64 characters")
+
+    return calendar_id
+
+
 def main(
+    google_calendar_id: Annotated[
+        str,
+        typer.Option(
+            "-g",
+            "--gcal-id",
+            callback=validate_gcal_id,
+            help="ID of the Google calendar to update.",
+        ),
+    ] = None,
     parse_only: Annotated[
         bool,
         typer.Option(
@@ -59,12 +91,17 @@ def main(
         typer.Option(
             "-c",
             "--clear-calendar",
-            help="Clear all events from the calendar before updating.",
+            help="Clear all events from third-party calendar services before updating.",
         ),
-    ] = False
+    ] = False,
 ):
+    if not parse_only and not google_calendar_id:
+        raise typer.BadParameter(
+            "A calendar ID must be specified with '-g' for third-party calendar functionality. "
+            "Try running with '--parse-only' to bypass this."
+        )
     log = Logger("calude_updates")
-    parsed_runs, calendar = initialize()
+    parsed_runs, calendar = initialize(google_calendar_id)
     typer.echo(f"Parsed {len(parsed_runs)} runs")
 
     if parse_only:
