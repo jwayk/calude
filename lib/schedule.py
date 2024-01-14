@@ -74,6 +74,7 @@ class Run:
         cls,
         game: str,
         run_category: str,
+        platform: str,
         runner: str,
         host: str,
         couch: list[str],
@@ -86,7 +87,7 @@ class Run:
         return cls(
             game,
             f"{runner}\n"
-            f"{run_category}\n"
+            f"{run_category} {platform if platform else ''}\n"
             f"Estimated time: {estimate}\n\n"
             f"Host: {host}" + ("\n" + f"Couch: {', '.join(couch)}" if couch else ""),
             *cls._generate_datetime_strings(
@@ -141,25 +142,39 @@ class ScheduleParser:
         meta_div, cast_div = description_div.find_all("div", recursive=False)
 
         event_type = meta_div.find("label", recursive=False).text
-        run_category = meta_div.find("div", {"class": "inline-flex"}).text
-        estimate_text = meta_div.find("span", {"class": "font-monospace"}).text
+        metadata = meta_div.find("div", {"class": "session-title"})
+        category_and_platform_spans = (
+            metadata.find("div", {"class": "items-center"})
+            .find("span")
+            .find_all("span")
+        )
+        if len(category_and_platform_spans) == 1:
+            run_category = category_and_platform_spans.text
+            platform = None
+        else:
+            run_category, platform = [span.text for span in category_and_platform_spans]
+
+        estimate_text = metadata.find(
+            "span", {"class": "font-monospace"}, recursive=False
+        ).text
         estimate = re.match(r"\(Est: (.*)\)", estimate_text).group(1)
 
         runner_element_type = "a" if cast_div.find("a") else "div"
         runner = cast_div.find(
             runner_element_type, {"class": "ring-[color:var(--accent-purple)]"}
         ).text
-        host = cast_div.find("div", {"class": "ring-[color:var(--gdq-blue)]"}).text
+        host = cast_div.find("span", {"class": "ring-[color:var(--gdq-blue)]"}).text
         couch_members = [
             element.text
             for element in cast_div.find_all(
-                "div", {"class": "ring-[color:var(--accent-goldenrod)]"}
+                "span", {"class": "ring-[color:var(--accent-goldenrod)]"}
             )
         ]
 
         return {
             "game": title,
             "run_category": run_category,
+            "platform": platform,
             "runner": runner,
             "host": host,
             "couch": couch_members,
