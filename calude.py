@@ -107,7 +107,9 @@ def main(
 
     if parse_only:
         with open("logs/events_from_last_run.json", "w+") as cache_file:
-            cache_file.write(json.dumps([run.to_gcal_event() for run in parsed_runs], indent=4))
+            cache_file.write(
+                json.dumps([run.to_gcal_event() for run in parsed_runs], indent=4)
+            )
         exit(0)
 
     if clear_calendar:
