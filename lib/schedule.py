@@ -135,7 +135,7 @@ class ScheduleParser:
         if not title_div.text:
             return {}  # no listed title or start time
 
-        event_title = title_div.find("div", {"class": "font-display"}, recursive=False)
+        event_title = title_div.find("span", {"class": "font-bold"})
         event_start = title_div.find("div", {"class": "font-light"}, recursive=False)
         if not (event_title and event_start):
             return {}  # pre-show-like event without a title
@@ -199,8 +199,10 @@ class ScheduleParser:
         runs = []
         for div in all_schedule_divs:
             child_span = div.find("span", {"class": "flex"}, recursive=False)
-            if child_span:
-                day = child_span.find(string=True, recursive=False).strip()
+            if child_span and (
+                span_text := child_span.find(string=True, recursive=False)
+            ):
+                day = span_text.strip()
                 continue
 
             parsed_event_info = self._parse_single_run_from_div(div)
