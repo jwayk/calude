@@ -129,15 +129,20 @@ class ScheduleParser:
         return events_container.find_all("div", recursive=False)
 
     def _parse_single_run_from_div(self, div: Tag) -> dict:
-        title_div, description_div = div.find_all("div", recursive=False)
+        event_subdivs = iter(div.find_all("div", recursive=False))
+        title_div = next(event_subdivs)
+        description_div = next(event_subdivs)
         if not title_div.text:
             return {}  # no listed title or start time
 
-        title_information = title_div.find_all("div", recursive=False)
-        if len(title_information) != 2:
+        event_title = title_div.find("div", {"class": "font-display"}, recursive=False)
+        event_start = title_div.find("div", {"class": "font-light"}, recursive=False)
+        if not (event_title and event_start):
             return {}  # pre-show-like event without a title
 
-        title, start_time = (info.find(string=True) for info in title_information)
+        title, start_time = (
+            info.find(string=True) for info in [event_title, event_start]
+        )
 
         description_subdivs = iter(description_div.find_all("div", recursive=False))
         meta_div = next(description_subdivs)
