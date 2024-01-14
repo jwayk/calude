@@ -160,7 +160,7 @@ class ScheduleParser:
         estimate_text = metadata.find(
             "span", {"class": "font-monospace"}, recursive=False
         ).text
-        estimate = re.match(r"\(Est: (.*)\)", estimate_text).group(1)
+        estimate = re.match(r"\((?:Est: )?(.*)\)", estimate_text).group(1)
 
         runner_element_type = "a" if cast_div.find("a") else "span"
         runner = cast_div.find(
