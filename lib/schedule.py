@@ -139,7 +139,10 @@ class ScheduleParser:
 
         title, start_time = (info.find(string=True) for info in title_information)
 
-        meta_div, cast_div = description_div.find_all("div", recursive=False)
+        description_subdivs = iter(description_div.find_all("div", recursive=False))
+        meta_div = next(description_subdivs)
+        cast_div = next(description_subdivs)
+        incentive_div = next(description_subdivs, None)
 
         event_type = meta_div.find("label", recursive=False).text
         metadata = meta_div.find("div", {"class": "session-title"})
@@ -159,7 +162,7 @@ class ScheduleParser:
         ).text
         estimate = re.match(r"\(Est: (.*)\)", estimate_text).group(1)
 
-        runner_element_type = "a" if cast_div.find("a") else "div"
+        runner_element_type = "a" if cast_div.find("a") else "span"
         runner = cast_div.find(
             runner_element_type, {"class": "ring-[color:var(--accent-purple)]"}
         ).text
@@ -190,9 +193,9 @@ class ScheduleParser:
         day = None
         runs = []
         for div in all_schedule_divs:
-            root_text_content = div.find(string=True, recursive=False)
-            if root_text_content:
-                day = root_text_content.strip()
+            child_span = div.find("span", {"class": "flex"}, recursive=False)
+            if child_span:
+                day = child_span.find(string=True, recursive=False).strip()
                 continue
 
             parsed_event_info = self._parse_single_run_from_div(div)
