@@ -5,5 +5,5 @@ _auth/
 .pytest_cache/
 tests/
 logs/
-output/
+output/*.ics
 settings.py
