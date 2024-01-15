@@ -8,6 +8,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from ics import Calendar, Event
 
 from .schedule import Run
 
@@ -33,7 +34,26 @@ class HTMLInterface:
         return self.html
 
 
-class CalendarInterface:
+class ICSInterface(Calendar):
+    def __init__(self, events: list[Event]) -> None:
+        super().__init__(events=events)
+
+    @classmethod
+    def from_runs(cls, runs: list[Run]) -> "ICSInterface":
+        return cls(
+            [
+                Event(
+                    name=run.summary,
+                    description=run.description,
+                    begin=run.start,
+                    end=run.end,
+                )
+                for run in runs
+            ]
+        )
+
+
+class GCalInterface:
     def __init__(self, calendar_id: str):
         self.calendar_id = calendar_id
         self.service = self._authenticate()
