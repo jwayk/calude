@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import re
+from itertools import chain
 
 from bs4 import BeautifulSoup, ResultSet, Tag
 
@@ -75,7 +76,7 @@ class Run:
         game: str,
         run_category: str,
         platform: str,
-        runner: str,
+        runners: list[str],
         host: str,
         couch: list[str],
         year: str,
@@ -86,7 +87,7 @@ class Run:
     ) -> "Run":
         return cls(
             game,
-            f"{runner}\n"
+            f"{', '.join(runners)}\n"
             f"{run_category} {platform if platform else ''}\n"
             f"Estimated time: {estimate}\n\n"
             f"Host: {host}" + ("\n" + f"Couch: {', '.join(couch)}" if couch else ""),
@@ -167,10 +168,13 @@ class ScheduleParser:
         ).text
         estimate = re.match(r"\((?:Est: )?(.*)\)", estimate_text).group(1)
 
-        runner_element_type = "a" if cast_div.find("a") else "span"
-        runner = cast_div.find(
-            runner_element_type, {"class": "ring-[color:var(--accent-purple)]"}
-        ).text
+        runner_constraint = {"class": "ring-[color:var(--accent-purple)]"}
+        runners = [
+            runner_element.text
+            for runner_element in chain(
+                *[cast_div.find_all(tag, runner_constraint) for tag in ["a", "span"]]
+            )
+        ]
         host = cast_div.find("span", {"class": "ring-[color:var(--gdq-blue)]"}).text
         couch_members = [
             element.text
@@ -183,7 +187,7 @@ class ScheduleParser:
             "game": title,
             "run_category": run_category,
             "platform": platform,
-            "runner": runner,
+            "runners": runners,
             "host": host,
             "couch": couch_members,
             "start_time": start_time,
