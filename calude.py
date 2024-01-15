@@ -4,6 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 import typing as t
 import re
 import json
+from pathlib import Path
+from datetime import datetime
 
 import typer
 from typing_extensions import Annotated
@@ -96,10 +98,10 @@ def main(
             help="Clear all events from third-party calendar services before updating.",
         ),
     ] = False,
-    store_ics: Annotated[
+    export_ics: Annotated[
         bool,
         typer.Option(
-            "-i", "--store-ics", help="Store an ICS file containing all parsed events."
+            "-i", "--export-ics", help="Store an ICS file containing all parsed events."
         ),
     ] = False,
 ):
@@ -112,16 +114,20 @@ def main(
     parsed_runs, calendar = initialize(google_calendar_id)
     typer.echo(f"Parsed {len(parsed_runs)} runs")
 
+    if export_ics:
+        ics_calendar = ICSInterface.from_runs(parsed_runs)
+        output_path = Path("./output") / datetime.now().strftime(
+            "GDQ_SCHEDULE_%Y%m%d%H%M%S.ics"
+        )
+        with open(output_path, "w+") as ics_file:
+            ics_file.writelines(ics_calendar.serialize_iter())
+
     if parse_only:
         with open("logs/events_from_last_run.json", "w+") as cache_file:
             cache_file.write(
                 json.dumps([run.to_gcal_event() for run in parsed_runs], indent=4)
             )
         exit(0)
-    if store_ics:
-        ics_calendar = ICSInterface.from_runs(parsed_runs)
-        with open("gdq_schedule.ics", "w+") as ics_file:
-            ics_file.writelines(ics_calendar.serialize_iter())
 
     if clear_calendar:
         all_events = calendar.get_all_events()
