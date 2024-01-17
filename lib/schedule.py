@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 import re
 from itertools import chain
+import time
 
 from bs4 import BeautifulSoup, ResultSet, Tag
+import pytz
 
 
 class Run:
@@ -119,8 +121,11 @@ class ScheduleParser:
             r".*?(\d{4})(?:\sOnline)?\sSchedule", title.text.strip()
         ).group(1)
 
-    def _parse_timezone_offset(self) -> int:
-        return -5  # new schedule is currently hard-coded to America/New_York
+    def _get_timezone_offset(self) -> int:
+        now = time.time()
+        utc_reference = datetime.fromtimestamp(now, pytz.utc).replace(tzinfo=None)
+        naive_dt = datetime.fromtimestamp(now)
+        return -int((utc_reference - naive_dt).seconds / 60 / 60)
 
     def _find_event_containers(self) -> ResultSet[Tag]:
         schedule_container = self.soup.find("div", {"id": "radix-:r0:-content-All"})
@@ -196,7 +201,7 @@ class ScheduleParser:
 
     def parse(self) -> list[Run]:
         year = self._parse_year()
-        timezone_offset = self._parse_timezone_offset()
+        timezone_offset = self._get_timezone_offset()
         all_schedule_divs = self._find_event_containers()
 
         day = None
