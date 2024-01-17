@@ -30,7 +30,7 @@ class Run:
 
         estimate = datetime.strptime(estimate_string, "%H:%M:%S")
         start_dt = datetime.strptime(
-            f"{year} {day[0:-2]} {start_time}", "%Y %A, %b %d %I:%M %p"
+            f"{year} {day[0:-2]} {start_time}", "%Y %a, %b %d %I:%M %p"
         )
         end_dt = start_dt + timedelta(
             hours=estimate.hour, minutes=estimate.minute, seconds=estimate.second
@@ -152,20 +152,20 @@ class ScheduleParser:
 
         event_type = meta_div.find("label", recursive=False).text
         metadata = meta_div.find("div", {"class": "session-title"})
-        category_and_platform_spans = (
+        metadata_spans = (
             metadata.find("div", {"class": "items-center"})
             .find("span")
             .find_all("span")
         )
-        if len(category_and_platform_spans) == 1:
-            run_category = category_and_platform_spans.text
+        if len(metadata_spans) == 2:
+            run_category = metadata_spans[0].text
             platform = None
+            estimate_text = metadata_spans[1].text
         else:
-            run_category, platform = [span.text for span in category_and_platform_spans]
+            run_category, platform, estimate_text = [
+                span.text for span in metadata_spans
+            ]
 
-        estimate_text = metadata.find(
-            "span", {"class": "font-monospace"}, recursive=False
-        ).text
         estimate = re.match(r"\((?:Est: )?(.*)\)", estimate_text).group(1)
 
         runner_constraint = {"class": "ring-[color:var(--accent-purple)]"}
