@@ -86,12 +86,16 @@ class Run:
         start_time: str,
         estimate: str,
         timezone_offset: int,
+        vod_link: str = None,
     ) -> "Run":
+        def format_vod_link(run_time: str, link: str) -> str:
+            return f'<a href="{link}">{run_time}</a>'
+
         return cls(
             game,
             f"{', '.join(runners)}\n"
             f"{run_category} {platform if platform else ''}\n"
-            f"Estimated time: {estimate}\n\n"
+            f"{'Estimated' if not vod_link else 'Final'} time: {estimate if not vod_link else format_vod_link(estimate, vod_link)}\n\n"
             f"Host: {host}" + ("\n" + f"Couch: {', '.join(couch)}" if couch else ""),
             *cls._generate_datetime_strings(
                 year, day, start_time, estimate, timezone_offset
@@ -146,6 +150,8 @@ class ScheduleParser:
         if not (event_title and event_start):
             return {}  # pre-show-like event without a title
 
+        vod_tag = title_div.find("a", href=True)
+        vod_link = None if not vod_tag else vod_tag["href"]
         title, start_time = (
             info.find(string=True) for info in [event_title, event_start]
         )
@@ -197,6 +203,7 @@ class ScheduleParser:
             "couch": couch_members,
             "start_time": start_time,
             "estimate": estimate,
+            "vod_link": vod_link,
         }
 
     def parse(self) -> list[Run]:
