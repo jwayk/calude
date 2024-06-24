@@ -28,7 +28,7 @@ class HTMLInterface:
                 30
             )  # set timeout to wait for the schedule element
             self.driver.find_element(
-                By.XPATH, "//div[@class='flex flex-col relative']"
+                By.XPATH, "//div[@class='w-full flex flex-col relative']"
             )  # find the main schedule div
             self.html = self.driver.page_source
         return self.html
