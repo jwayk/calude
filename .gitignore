@@ -7,3 +7,4 @@ tests/
 logs/
 output/*.ics
 settings.py
+*_auth*
