@@ -26,7 +26,7 @@ def initialize(calendar_id: str) -> t.Tuple[list[Run], GCalInterface]:
     with ThreadPoolExecutor() as executor:
         calendar_thread = executor.submit(initialize_calendar, calendar_id)
     # schedule parsing must occur in main thread
-    site_interface = HTMLInterface("https://gdq-site.vercel.app/")
+    site_interface = HTMLInterface("https://gamesdonequick.com/schedule")
     schedule_html = site_interface.get_html()
     site_interface.driver.quit()
     parser = ScheduleParser(schedule_html)
