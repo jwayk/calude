@@ -33,14 +33,10 @@ def track(task: t.Callable, sequence: t.Iterable, description: str) -> None:
             task(payload)
 
 
-P = t.ParamSpec("P")
-T = t.TypeVar("T")
-
-
 def spin(task_description: str):
-    def decorator(function: t.Callable[P, T]) -> t.Callable[P, T]:
+    def decorator(function: t.Callable) -> t.Callable:
         @wraps(function)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        def wrapper(*args, **kwargs):
             with Spinner() as spinner:
                 task_id = spinner.add_task(task_description, total=1)
                 result = function(*args, **kwargs)
