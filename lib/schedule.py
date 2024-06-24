@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import re
 from itertools import chain
 import time
+import typing as t
 
 from bs4 import BeautifulSoup, ResultSet, Tag
 import pytz
@@ -25,7 +26,7 @@ class Run:
     @staticmethod
     def _generate_datetime_strings(
         year: str, day: str, start_time: str, estimate_string: str, timezone_offset: int
-    ) -> (str, str):
+    ) -> t.Tuple[str, str]:
         def format_dt(dt: datetime) -> str:
             dt_utc = dt - timedelta(hours=timezone_offset)
             return dt_utc.strftime(f"%Y-%m-%dT%H:%M:%SZ")

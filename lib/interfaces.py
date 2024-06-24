@@ -1,5 +1,6 @@
 import pickle
 import os.path
+import typing as t
 
 import backoff
 from googleapiclient.discovery import build
@@ -96,7 +97,7 @@ class GCalInterface:
             self.delete_event(event)
         self.cached_events = None
 
-    def _get_events_by_page(self, page_token=None) -> (list, str):
+    def _get_events_by_page(self, page_token=None) -> t.Tuple[list, str]:
         events_page = (
             self.service.events()
             .list(calendarId=self.calendar_id, pageToken=page_token)
