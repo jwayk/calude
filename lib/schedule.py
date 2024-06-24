@@ -120,10 +120,13 @@ class ScheduleParser:
         self.soup = BeautifulSoup(schedule_html, "html.parser")
 
     def _parse_year(self) -> str:
-        title = self.soup.find("title")
-        return re.search(
-            r".*?(\d{4})(?:\sOnline)?\sSchedule", title.text.strip()
-        ).group(1)
+        event_title = self.soup.find(
+            string=re.compile(
+                r"^(Summer|Awesome) Games Done Quick \d{4}$", re.IGNORECASE
+            )
+        )
+        assert event_title
+        return event_title[-4:]
 
     def _get_timezone_offset(self) -> int:
         now = time.time()
@@ -133,15 +136,33 @@ class ScheduleParser:
 
     def _find_event_containers(self) -> ResultSet[Tag]:
         schedule_container = self.soup.find("div", {"id": "radix-:r0:-content-All"})
+
         events_container = schedule_container.find_all("div", recursive=False)[
             1
         ]  # first div in main container is controls, skip it
-        return events_container.find_all("div", recursive=False)
+
+        nested_events: ResultSet = events_container.find_all("div", recursive=False)
+        assert len(nested_events) % 2 == 0
+        all_containers = []
+
+        for day_separator, runs_container in zip(nested_events, nested_events):
+            all_containers.append(day_separator)
+            all_containers.extend(runs_container.find_all("div", recursive=False))
+
+        return all_containers
 
     def _parse_single_run_from_div(self, div: Tag) -> dict:
-        event_subdivs = iter(div.find_all("div", recursive=False))
-        title_div = next(event_subdivs)
-        description_div = next(event_subdivs)
+        subdivs: list[Tag] = div.find_all("div", recursive=False)
+
+        if len(subdivs) < 2:
+            subdivs = subdivs[0].find_all("div", recursive=False)
+            if len(subdivs) < 2:
+                return {}
+
+        subdiv_iter = iter(subdivs)
+        title_div = next(subdiv_iter)
+        description_div = next(subdiv_iter)
+
         if not title_div.text:
             return {}  # no listed title or start time
 
@@ -161,7 +182,9 @@ class ScheduleParser:
         cast_div = next(description_subdivs)
         incentive_div = next(description_subdivs, None)
 
-        event_type = meta_div.find("label", recursive=False).text
+        event_type = meta_div.find(
+            "div"
+        ).text  # event type should be first of two meta divs
         metadata = meta_div.find("div", {"class": "session-title"})
         metadata_spans = (
             metadata.find("div", {"class": "items-center"})
@@ -186,7 +209,11 @@ class ScheduleParser:
                 *[cast_div.find_all(tag, runner_constraint) for tag in ["a", "span"]]
             )
         ]
-        host = cast_div.find("span", {"class": "ring-[color:var(--gdq-blue)]"}).text
+        host = (
+            cast_div.find("span", {"class": "ring-[color:var(--gdq-blue)]"})
+            .find("div", {"class": "cast-pill-name"})
+            .text
+        )
         couch_members = [
             element.text
             for element in cast_div.find_all(
