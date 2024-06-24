@@ -6,6 +6,7 @@ import re
 import json
 from pathlib import Path
 from datetime import datetime
+from traceback import format_exc
 
 import typer
 from typing_extensions import Annotated
@@ -15,6 +16,8 @@ from lib.schedule import ScheduleParser, Run
 from lib.schedule import ScheduleParser, Run
 from lib.interfaces import HTMLInterface, GCalInterface, ICSInterface
 from lib.tasks import spin, track
+from lib.notifications import Emailer
+from settings import EMAIL_RECIPIENTS
 
 
 def initialize_calendar(calendar_id: str) -> GCalInterface:
@@ -158,4 +161,8 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    try:
+        typer.run(main)
+    except:
+        error_mailer = Emailer()
+        error_mailer.send_alert(format_exc(), EMAIL_RECIPIENTS)
