@@ -107,6 +107,9 @@ def main(
             "-i", "--export-ics", help="Store an ICS file containing all parsed events."
         ),
     ] = False,
+    debug_mode: Annotated[
+        bool, typer.Option("-d", "--debug", help="Run the script in debug mode.")
+    ] = False,
 ):
     if not parse_only and not google_calendar_id:
         raise typer.BadParameter(
@@ -114,55 +117,62 @@ def main(
             "Try running with '--parse-only' to bypass this."
         )
     log = Logger("calude_updates")
-    parsed_runs, calendar = initialize(google_calendar_id)
-    typer.echo(f"Parsed {len(parsed_runs)} runs")
 
-    if export_ics:
-        ics_calendar = ICSInterface.from_runs(parsed_runs)
-        output_path = Path("./output") / datetime.now().strftime(
-            "GDQ_SCHEDULE_%Y%m%d%H%M%S.ics"
-        )
-        with open(output_path, "w+") as ics_file:
-            ics_file.writelines(ics_calendar.serialize_iter())
+    try:
+        parsed_runs, calendar = initialize(google_calendar_id)
+        typer.echo(f"Parsed {len(parsed_runs)} runs")
 
-    if parse_only:
-        with open("logs/events_from_last_run.json", "w+") as cache_file:
-            cache_file.write(
-                json.dumps([run.to_gcal_event() for run in parsed_runs], indent=4)
+        if export_ics:
+            ics_calendar = ICSInterface.from_runs(parsed_runs)
+            output_path = Path("./output") / datetime.now().strftime(
+                "GDQ_SCHEDULE_%Y%m%d%H%M%S.ics"
             )
-        exit(0)
+            with open(output_path, "w+") as ics_file:
+                ics_file.writelines(ics_calendar.serialize_iter())
 
-    if clear_calendar:
-        all_events = calendar.get_all_events()
-        log.debug(f"Cleared Events: {log_format_events(all_events)}")
-        track(calendar.delete_event, all_events, "Clearing calendar ...")
-        calendar.cached_events = None
+        if parse_only:
+            with open("logs/events_from_last_run.json", "w+") as cache_file:
+                cache_file.write(
+                    json.dumps([run.to_gcal_event() for run in parsed_runs], indent=4)
+                )
+            exit(0)
 
-    outdated_events = find_outdated_events(calendar, parsed_runs)
-    if outdated_events:
-        log.debug(f"Outdated Events: {log_format_events(outdated_events)}")
-        track(calendar.delete_event, outdated_events, "Deleting outdated events ...")
-    else:
-        typer.echo("No outdated events.")
+        if clear_calendar:
+            all_events = calendar.get_all_events()
+            log.debug(f"Cleared Events: {log_format_events(all_events)}")
+            track(calendar.delete_event, all_events, "Clearing calendar ...")
+            calendar.cached_events = None
 
-    existing_events = calendar.get_all_events()
-    events_to_add = [
-        run.to_gcal_event()
-        for run in parsed_runs
-        if run not in [Run.from_gcal_event(event) for event in existing_events]
-    ]
-    if events_to_add:
-        log.debug(f"New Events: {log_format_events(events_to_add)}")
-        track(calendar.add_event, events_to_add, "Adding events to calendar ...")
-    else:
-        typer.echo("No runs to add; calendar is up-to-date.")
+        outdated_events = find_outdated_events(calendar, parsed_runs)
+        if outdated_events:
+            log.debug(f"Outdated Events: {log_format_events(outdated_events)}")
+            track(
+                calendar.delete_event, outdated_events, "Deleting outdated events ..."
+            )
+        else:
+            typer.echo("No outdated events.")
 
-    typer.echo("Done!")
+        existing_events = calendar.get_all_events()
+        events_to_add = [
+            run.to_gcal_event()
+            for run in parsed_runs
+            if run not in [Run.from_gcal_event(event) for event in existing_events]
+        ]
+        if events_to_add:
+            log.debug(f"New Events: {log_format_events(events_to_add)}")
+            track(calendar.add_event, events_to_add, "Adding events to calendar ...")
+        else:
+            typer.echo("No runs to add; calendar is up-to-date.")
+
+        typer.echo("Done!")
+
+    except:
+        if debug_mode:
+            raise
+
+        error_emailer = Emailer()
+        error_emailer.send_alert(format_exc(), EMAIL_RECIPIENTS)
 
 
 if __name__ == "__main__":
-    try:
-        typer.run(main)
-    except:
-        error_mailer = Emailer()
-        error_mailer.send_alert(format_exc(), EMAIL_RECIPIENTS)
+    typer.run(main)
