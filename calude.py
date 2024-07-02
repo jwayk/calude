@@ -110,6 +110,16 @@ def main(
     debug_mode: Annotated[
         bool, typer.Option("-d", "--debug", help="Run the script in debug mode.")
     ] = False,
+    maximum_retries: Annotated[
+        int,
+        typer.Option(
+            "-r",
+            "--retries",
+            help="Maximum number of times to retry parsing.",
+            min=1,
+            max=10,
+        ),
+    ] = 5,
 ):
     if not parse_only and not google_calendar_id:
         raise typer.BadParameter(
@@ -119,7 +129,15 @@ def main(
     log = Logger("calude_updates")
 
     try:
-        parsed_runs, calendar = initialize(google_calendar_id)
+        for attempt in range(maximum_retries):
+            try:
+                parsed_runs, calendar = initialize(google_calendar_id)
+                break
+            except:
+                if attempt + 1 < maximum_retries:
+                    continue
+                raise
+
         typer.echo(f"Parsed {len(parsed_runs)} runs")
 
         if export_ics:
