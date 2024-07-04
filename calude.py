@@ -85,12 +85,12 @@ def main(
             help="ID of the Google calendar to update.",
         ),
     ] = None,
-    parse_only: Annotated[
+    no_gcal: Annotated[
         bool,
         typer.Option(
-            "-p",
-            "--parse-only",
-            help="Parse the schedule, but do not update any calendars via API.",
+            "-G",
+            "--no-gcal",
+            help="Run the script without updating any Google calendars.",
         ),
     ] = False,
     clear_calendar: Annotated[
@@ -121,10 +121,10 @@ def main(
         ),
     ] = 5,
 ):
-    if not parse_only and not google_calendar_id:
+    if not google_calendar_id and not no_gcal:
         raise typer.BadParameter(
             "A calendar ID must be specified with '-g' for third-party calendar functionality. "
-            "Try running with '--parse-only' to bypass this."
+            "Try running with '--no-gcal' to bypass this."
         )
     log = Logger("calude_updates")
 
@@ -148,7 +148,7 @@ def main(
             with open(output_path, "w+") as ics_file:
                 ics_file.writelines(ics_calendar.serialize_iter())
 
-        if parse_only:
+        if no_gcal:
             with open("logs/events_from_last_run.json", "w+") as cache_file:
                 cache_file.write(
                     json.dumps([run.to_gcal_event() for run in parsed_runs], indent=4)
