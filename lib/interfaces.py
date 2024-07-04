@@ -36,13 +36,10 @@ class HTMLInterface:
 
 
 class ICSInterface(Calendar):
-    def __init__(self, events: list[Event]) -> None:
-        super().__init__(events=events)
-
     @classmethod
     def from_runs(cls, runs: list[Run]) -> "ICSInterface":
         return cls(
-            [
+            events=[
                 Event(
                     name=run.summary,
                     description=run.description,
