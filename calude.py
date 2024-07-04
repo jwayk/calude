@@ -25,15 +25,27 @@ def initialize_calendar(calendar_id: str) -> GCalInterface:
 
 
 @spin("Initializing calendar & parsing schedule ...")
-def initialize(calendar_id: str) -> t.Tuple[list[Run], GCalInterface]:
+def parse_schedule_and_init_gcal(
+    parsing_attempt_limit: int, calendar_id: str
+) -> t.Tuple[list[Run], GCalInterface]:
     with ThreadPoolExecutor() as executor:
         calendar_thread = executor.submit(initialize_calendar, calendar_id)
+
     # schedule parsing must occur in main thread
     site_interface = HTMLInterface("https://gamesdonequick.com/schedule")
     schedule_html = site_interface.get_html()
     site_interface.driver.quit()
     parser = ScheduleParser(schedule_html)
-    return parser.parse(), calendar_thread.result()
+    for attempt in range(parsing_attempt_limit):
+        try:
+            parsed_runs = parser.parse()
+            break
+        except:
+            if attempt + 1 < parsing_attempt_limit:
+                continue
+            raise
+
+    return parsed_runs, calendar_thread.result()
 
 
 @spin("Checking for outdated events ...")
@@ -129,14 +141,9 @@ def main(
     log = Logger("calude_updates")
 
     try:
-        for attempt in range(maximum_retries):
-            try:
-                parsed_runs, calendar = initialize(google_calendar_id)
-                break
-            except:
-                if attempt + 1 < maximum_retries:
-                    continue
-                raise
+        parsed_runs, calendar = parse_schedule_and_init_gcal(
+            parsing_attempt_limit=maximum_retries, calendar_id=google_calendar_id
+        )
 
         typer.echo(f"Parsed {len(parsed_runs)} runs")
 
