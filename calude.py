@@ -36,8 +36,16 @@ def parse_schedule_and_init_gcal(
     schedule_html = site_interface.get_html()
     site_interface.driver.quit()
     parser = ScheduleParser(schedule_html)
+    for attempt in range(parsing_attempt_limit):
+        try:
+            parsed_runs = parser.parse()
+            break
+        except:
+            if attempt + 1 < parsing_attempt_limit:
+                continue
+            raise
 
-    return parser.parse(attempt_limit=parsing_attempt_limit), calendar_thread.result()
+    return parsed_runs, calendar_thread.result()
 
 
 @spin("Checking for outdated events ...")

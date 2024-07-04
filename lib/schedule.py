@@ -234,7 +234,7 @@ class ScheduleParser:
             "vod_link": vod_link,
         }
 
-    def _parse(self) -> list[Run]:
+    def parse(self) -> list[Run]:
         year = self._parse_year()
         timezone_offset = self._get_timezone_offset()
         all_schedule_divs = self._find_event_containers()
@@ -263,12 +263,3 @@ class ScheduleParser:
             )
 
         return runs
-
-    def parse(self, attempt_limit: int = 1) -> list[Run]:
-        for attempt in range(attempt_limit):
-            try:
-                return self._parse()
-            except:
-                if attempt + 1 < attempt_limit:
-                    continue
-                raise
