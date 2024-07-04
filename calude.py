@@ -32,12 +32,12 @@ def parse_schedule_and_init_gcal(
         calendar_thread = executor.submit(initialize_calendar, calendar_id)
 
     # schedule parsing must occur in main thread
-    site_interface = HTMLInterface("https://gamesdonequick.com/schedule")
-    schedule_html = site_interface.get_html()
-    site_interface.driver.quit()
-    parser = ScheduleParser(schedule_html)
     for attempt in range(parsing_attempt_limit):
         try:
+            site_interface = HTMLInterface("https://gamesdonequick.com/schedule")
+            schedule_html = site_interface.get_html()
+            site_interface.driver.quit()
+            parser = ScheduleParser(schedule_html)
             parsed_runs = parser.parse()
             break
         except:
