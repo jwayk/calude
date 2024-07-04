@@ -191,6 +191,11 @@ def main(
 
         typer.echo("Done!")
 
+    except (
+        SystemExit
+    ):  # prevent exit(0) call from triggering notifications if -G is used
+        raise
+
     except:
         if debug_mode:
             raise
