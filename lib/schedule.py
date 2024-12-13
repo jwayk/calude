@@ -152,6 +152,12 @@ class ScheduleParser:
 
         return all_containers
 
+    @staticmethod
+    def _get_cast_members(cast_element: Tag, constraints: dict) -> t.Iterable[Tag]:
+        return chain(
+            *[cast_element.find_all(tag, constraints) for tag in ["a", "span"]]
+        )
+
     def _parse_single_run_from_div(self, div: Tag) -> dict:
         subdivs: list[Tag] = div.find_all("div", recursive=False)
 
@@ -206,14 +212,10 @@ class ScheduleParser:
         runner_constraint = {"class": "ring-[color:var(--accent-purple)]"}
         runners = [
             runner_element.text
-            for runner_element in chain(
-                *[cast_div.find_all(tag, runner_constraint) for tag in ["a", "span"]]
-            )
+            for runner_element in self._get_cast_members(cast_div, runner_constraint)
         ]
         host_constraint = {"class": "ring-[color:var(--gdq-blue)]"}
-        host_element = next(
-            chain(*[cast_div.find_all(tag, host_constraint) for tag in ["a", "span"]])
-        )
+        host_element = next(self._get_cast_members(cast_div, host_constraint))
         host = host_element.find("div", {"class": "cast-pill-name"}).text
         couch_members = [
             element.text
