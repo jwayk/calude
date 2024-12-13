@@ -210,11 +210,11 @@ class ScheduleParser:
                 *[cast_div.find_all(tag, runner_constraint) for tag in ["a", "span"]]
             )
         ]
-        host = (
-            cast_div.find("span", {"class": "ring-[color:var(--gdq-blue)]"})
-            .find("div", {"class": "cast-pill-name"})
-            .text
+        host_constraint = {"class": "ring-[color:var(--gdq-blue)]"}
+        host_element = next(
+            chain(*[cast_div.find_all(tag, host_constraint) for tag in ["a", "span"]])
         )
+        host = host_element.find("div", {"class": "cast-pill-name"}).text
         couch_members = [
             element.text
             for element in cast_div.find_all(
