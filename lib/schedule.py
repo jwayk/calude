@@ -97,7 +97,8 @@ class Run:
             f"{', '.join(runners)}\n"
             f"{run_category} {platform if platform else ''}\n"
             f"{'Estimated' if not vod_link else 'Final'} time: {estimate if not vod_link else format_vod_link(estimate, vod_link)}\n\n"
-            f"Host: {host}" + ("\n" + f"Couch: {', '.join(couch)}" if couch else ""),
+            + (f"Host: {host}" if host else "")
+            + ("\n" + f"Couch: {', '.join(couch)}" if couch else ""),
             *cls._generate_datetime_strings(
                 year, day, start_time, estimate, timezone_offset
             ),
@@ -214,14 +215,18 @@ class ScheduleParser:
             runner_element.text
             for runner_element in self._get_cast_members(cast_div, runner_constraint)
         ]
+
         host_constraint = {"class": "ring-[color:var(--gdq-blue)]"}
-        host_element = next(self._get_cast_members(cast_div, host_constraint))
-        host = host_element.find("div", {"class": "cast-pill-name"}).text
+        try:
+            host_element = next(self._get_cast_members(cast_div, host_constraint))
+            host = host_element.find("div", {"class": "cast-pill-name"}).text
+        except StopIteration:
+            host = ""
+
+        couch_constraint = {"class": "ring-[color:var(--accent-goldenrod)]"}
         couch_members = [
             element.text
-            for element in cast_div.find_all(
-                "span", {"class": "ring-[color:var(--accent-goldenrod)]"}
-            )
+            for element in self._get_cast_members(cast_div, couch_constraint)
         ]
 
         return {
